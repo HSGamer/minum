@@ -4,6 +4,7 @@ Release notes
 * This is a list of the major versions, which are those requiring the developer to adjust
   their code.  From August 2023 to August 2024, there were 8 major versions. Version 8 has
   remained stable.
+  * 9: Fix race condition in templates
   * 8: Streaming videos, _August 2024_
   * 7: Read bodies more efficiently, _August 2024_
   * 6: Streaming responses, _July 2024_
@@ -13,6 +14,15 @@ Release notes
   * 2: Refactoring, _September 2023_
   * 1: Refactoring, Maven as buildtool, _September 2023_
   * 0: Beta release, _August 2023_
+
+v9.0.0
+------
+
+* Great appreciation to HSGamer for contributing some fantastic improvements! Among them:
+  * Found a race condition in the templates, and provided a fix.  This is the
+    main driver for incrementing the major version.
+  * Found and fixed a bug with unicode characters in the HTML parser
+  * Enabled multiple set-cookie headers in the IResponse
 
 v8.3.2 Dec 28, 2025
 -------------------
