@@ -762,4 +762,30 @@ public class TemplatingTests {
                 () -> mainTemplate.renderTemplate(data)
         );
     }
+
+    @Test
+    public void test_Template_Multi_Thread_WithInner() {
+        TemplateProcessor templateProcessor = buildProcessor("Hello {{thread}}");
+        TemplateProcessor innerTemplate = buildProcessor("Thread #{{name}}");
+        templateProcessor.registerInnerTemplate("thread", innerTemplate);
+
+        int threadCount = 10;
+        var futures = new ArrayList<CompletableFuture<String>>();
+
+        // Create multiple concurrent render tasks with different data
+        for (int i = 0; i < threadCount; i++) {
+            final int threadNum = i;
+            var future = CompletableFuture.supplyAsync(() -> {
+                templateProcessor.getInnerTemplate("thread").registerData(List.of(Map.of("name", Integer.toString(threadNum))));
+                return templateProcessor.renderTemplate();
+            });
+            futures.add(future);
+        }
+
+        // Verify all threads completed successfully with correct results
+        for (int i = 0; i < threadCount; i++) {
+            String result = futures.get(i).join();
+            assertEquals(result, "Hello Thread #" + i);
+        }
+    }
 }
