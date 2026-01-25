@@ -13,7 +13,7 @@ public class TemplateData {
     // these are all prototypes
 
     // TODO this is just a prototype
-    public <E> void add(String keyToInnerTemplate,
+    public void add(String keyToInnerTemplate,
                          List<Map<String,String>> innerTemplateValues) {
 
         if (this.data.isEmpty()) {
