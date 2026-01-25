@@ -46,7 +46,6 @@ public final class TemplateProcessor {
      * template sections by indentation
      */
     private Map<Integer, List<TemplateSection>> templatesSectionsByIndent;
-    private List<?> defaultDataList = new ArrayList<>();
     private final Set<String> keysFoundInTemplate;
     private final Set<String> keysRegisteredForInnerTemplates;
     private final String originalText;
@@ -73,21 +72,6 @@ public final class TemplateProcessor {
 
     /**
      * Given a map of key names -> value, render a template.
-     */
-    public String renderTemplate(Object data) {
-        return internalRender(true, data).toString();
-    }
-
-    /**
-     * Recursively assembles the template and sub-templates
-     */
-    public String renderTemplate() {
-        return internalRender(true, defaultDataList).toString();
-    }
-
-    /**
-     * Render the template and any nested sub-templates.  All templates
-     * must have data registered before running this method.
      * @param runWithChecks Default: true.  Check that there is a 1-to-1 correspondence between
      *                      the keys provided and keys in the template and sub-templates, throwing
      *                      an exception if there are any errors. Also check that the maps
@@ -96,24 +80,15 @@ public final class TemplateProcessor {
      *                      valuable in most cases, since the bottleneck is the business algorithms, database,
      *                      and HTTP processing.
      */
-    public String renderTemplate(boolean runWithChecks) {
-        return internalRender(runWithChecks, defaultDataList).toString();
+    public String renderTemplate(Object data, boolean runWithChecks) {
+        return internalRender(runWithChecks, data).toString();
     }
 
     /**
-     * Assign data.  Keys must match to template.
+     * Given a map of key names -> value, render a template.
      */
-    public void registerData(Object data) {
-        if (data == null){
-            throw new TemplateRenderException("provided data cannot be null");
-        }
-
-        List<?> dataList = normalizeList(data);
-        if (dataList.isEmpty()){
-            throw new TemplateRenderException("No data provided in registerData call");
-        }
-
-        this.defaultDataList = dataList;
+    public String renderTemplate(Object data) {
+        return internalRender(true, data).toString();
     }
 
     /**
@@ -361,51 +336,28 @@ public final class TemplateProcessor {
      *
      */
     private void correctnessCheck(List<?> dataList, String parentKey) {
-        if (dataList.isEmpty()) {
-            // When the data list is empty, check if there is any required key in the template
-            HashSet<String> missingKeys = new HashSet<>();
+        for (int i = 0; i < dataList.size(); i++) {
+            Object data = dataList.get(i);
+            String keyForException = parentKey + "[" + i + "]";
+            Map<?, ?> dataMap = normalizeMap(data);
+
+            Set<String> missingKeys = new HashSet<>();
             for (String key : keysFoundInTemplate) {
-                if (innerTemplates.containsKey(key)) {
-                    // The key leads to an inner template with potential default data list
-                    // Check them instead
-                    var tp = innerTemplates.get(key);
-                    tp.correctnessCheck(tp.defaultDataList, parentKey + "." + key);
-                } else {
-                    // This key is sure a required key and missing from the data list
-                    // Add it the set of missing keys
+                if (!dataMap.containsKey(key) && !keysRegisteredForInnerTemplates.contains(key)) {
                     missingKeys.add(key);
                 }
             }
             if (!missingKeys.isEmpty()) {
-                throw new TemplateRenderException("Missing keys in data " + parentKey + ": " + missingKeys);
+                throw new TemplateRenderException("Missing keys in data map " + keyForException + ": " + missingKeys);
             }
-        } else {
-            for (int i = 0; i < dataList.size(); i++) {
-                Object data = dataList.get(i);
-                String keyForException = parentKey + "[" + i + "]";
-                Map<?, ?> dataMap = normalizeMap(data);
 
-                Set<String> missingKeys = new HashSet<>();
-                for (String key : keysFoundInTemplate) {
-                    if (!dataMap.containsKey(key) && !keysRegisteredForInnerTemplates.contains(key)) {
-                        missingKeys.add(key);
-                    }
-                }
-                if (!missingKeys.isEmpty()) {
-                    throw new TemplateRenderException("Missing keys in data map " + keyForException + ": " + missingKeys);
-                }
+            for (var entry : this.innerTemplates.entrySet()) {
+                var key = entry.getKey();
+                var tp = entry.getValue();
 
-                for (var entry : this.innerTemplates.entrySet()) {
-                    var key = entry.getKey();
-                    var tp = entry.getValue();
+                Object value = dataMap.get(key);
 
-                    Object value = dataMap.get(key);
-                    if (value == null) {
-                        value = tp.defaultDataList;
-                    }
-
-                    tp.correctnessCheck(normalizeList(value), keyForException + "." + key);
-                }
+                tp.correctnessCheck(normalizeList(value), keyForException + "." + key);
             }
         }
     }
@@ -424,9 +376,6 @@ public final class TemplateProcessor {
             for (var data : dataList) {
                 var dataMap  = normalizeMap(data);
                 var innerData = dataMap.get(key);
-                if (innerData == null) {
-                    innerData = tp.defaultDataList;
-                }
                 fullCalculatedSize += tp.calculateEstimatedSize(normalizeList(innerData));
             }
         }
@@ -451,9 +400,6 @@ public final class TemplateProcessor {
                     case DYNAMIC_TEXT -> parts.append(myDataMap.get(templateSection.key));
                     default -> {
                         var innerData = myDataMap.get(templateSection.key);
-                        if (innerData == null) {
-                            innerData = templateSection.templateProcessor.defaultDataList;
-                        }
                         templateSection.templateProcessor.internalRender(templateSection.indent, parts, normalizeList(innerData));
                     }
                 }
