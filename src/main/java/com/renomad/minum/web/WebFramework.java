@@ -17,6 +17,8 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.renomad.minum.utils.FileUtils.checkFileIsWithinDirectory;
 import static com.renomad.minum.utils.FileUtils.checkForBadFilePatterns;
@@ -66,6 +68,16 @@ public final class WebFramework {
      * and we want to match ".well-known/acme-challenge"
      */
     private final Map<MethodPath, ThrowingFunction<IRequest, IResponse>> registeredPartialPaths;
+
+    /**
+     * This is used as a key to register Pattern endpoints
+     */
+    record MethodPatternPath(RequestLine.Method method, Pattern pattern) { }
+
+    /**
+     * These are registrations for paths that match a certain pattern. Useful for cases where path variables is required.
+     */
+    private final Map<MethodPatternPath, ThrowingBiFunction<IRequest, Matcher, IResponse>> registeredPatternPaths;
 
     /**
      * A function that will be run instead of the ordinary business code. Has
@@ -499,7 +511,12 @@ public final class WebFramework {
         }
 
         if (handler == null) {
-            logger.logTrace(() -> "No partial match found, checking files on disk for " + requestedPath );
+            logger.logTrace(() -> "No partial match found, looking for a pattern match for " + requestedPath);
+            handler = findHandlerByPatternMatch(sl);
+        }
+
+        if (handler == null) {
+            logger.logTrace(() -> "No pattern match found, checking files on disk for " + requestedPath );
             handler = findHandlerByFilesOnDisk(sl, requestHeaders);
         }
 
@@ -646,6 +663,25 @@ public final class WebFramework {
     }
 
     /**
+     * let's see if we can match the registered paths against a pattern
+     */
+    ThrowingFunction<IRequest, IResponse> findHandlerByPatternMatch(RequestLine sl) {
+        String requestedPath = sl.getPathDetails().getIsolatedPath();
+        for (var entry : registeredPatternPaths.entrySet()) {
+            var key = entry.getKey();
+            if (!sl.getMethod().equals(key.method())) {
+                continue;
+            }
+            Matcher matcher = key.pattern().matcher(requestedPath);
+            if (matcher.matches()) {
+                var value = entry.getValue();
+                return request -> value.apply(request, matcher);
+            }
+        }
+        return null;
+    }
+
+    /**
      * This constructor is used for the real production system
      */
     WebFramework(Context context) {
@@ -669,6 +705,7 @@ public final class WebFramework {
         this.overrideForDateTime = overrideForDateTime;
         this.registeredDynamicPaths = new HashMap<>();
         this.registeredPartialPaths = new HashMap<>();
+        this.registeredPatternPaths = new HashMap<>();
         this.inputStreamUtils = new InputStreamUtils(constants.maxReadLineSizeBytes);
         this.bodyProcessor = new BodyProcessor(context);
 
@@ -752,6 +789,32 @@ public final class WebFramework {
         var result = registeredPartialPaths.put(new MethodPath(method, pathName), webHandler);
         if (result != null) {
             throw new WebServerException("Duplicate partial-path endpoint registered: " + new MethodPath(method, pathName));
+        }
+    }
+
+    /**
+     * Similar to {@link WebFramework#registerPath(RequestLine.Method, String, ThrowingFunction)} except that the paths
+     * registered here must match a pattern.
+     * <p>
+     *     For example, if you register the path pattern {@code .well-known/acme-challenge/.*} then it
+     *     can match a client request for {@code .well-known/acme-challenge/HGr8U1IeTW4kY_Z6UIyaakzOkyQgPr_7ArlLgtZE8SX}
+     * </p>
+     * <p>
+     *     Be careful here, be thoughtful - partial paths will match a lot, and may
+     *     overlap with other URL's for your app, such as endpoints and static files.
+     * </p>
+     * @throws WebServerException if duplicate paths are registered, or if the path pattern is prefixed with a slash
+     */
+    public void registerPatternPath(RequestLine.Method method, Pattern pathPattern, ThrowingBiFunction<IRequest, Matcher, IResponse> webHandler) {
+        String pattern = pathPattern.pattern();
+        if (pattern.startsWith("\\") || pattern.startsWith("/")) {
+            throw new WebServerException(
+                    String.format("Path should not be prefixed with a slash.  Corrected version: registerPatternPath(%s, Pattern.compile(\"%s\"), ... )", method.name(), pattern.substring(1)));
+        }
+        var methodPatternPath = new MethodPatternPath(method, pathPattern);
+        var result = registeredPatternPaths.put(methodPatternPath, webHandler);
+        if (result != null) {
+            throw new WebServerException("Duplicate pattern-path endpoint registered: " + pathPattern);
         }
     }
 
