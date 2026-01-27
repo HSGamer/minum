@@ -506,17 +506,17 @@ public final class WebFramework {
         handler = registeredDynamicPaths.get(key);
 
         if (handler == null) {
-            logger.logTrace(() -> "No direct handler found.  looking for a partial match for " + requestedPath);
-            handler = findHandlerByPartialMatch(sl);
-        }
-
-        if (handler == null) {
-            logger.logTrace(() -> "No partial match found, looking for a pattern match for " + requestedPath);
+            logger.logTrace(() -> "No direct handler found. looking for a pattern match for " + requestedPath);
             handler = findHandlerByPatternMatch(sl);
         }
 
         if (handler == null) {
-            logger.logTrace(() -> "No pattern match found, checking files on disk for " + requestedPath );
+            logger.logTrace(() -> "No pattern handler found.  looking for a partial match for " + requestedPath);
+            handler = findHandlerByPartialMatch(sl);
+        }
+
+        if (handler == null) {
+            logger.logTrace(() -> "No partial match found, checking files on disk for " + requestedPath );
             handler = findHandlerByFilesOnDisk(sl, requestHeaders);
         }
 
