@@ -1138,6 +1138,10 @@ public class WebTests {
         var startLine = new RequestLine(GET, new PathDetails("user/123", "", Map.of()), ONE_DOT_ONE, "", logger);
         var handler = webFramework.findHandlerByPatternMatch(startLine);
         assertTrue(handler != null);
+
+        var startLineNotMatch = new RequestLine(GET, new PathDetails("user/abc", "", Map.of()), ONE_DOT_ONE, "", logger);
+        var handlerNull = webFramework.findHandlerByPatternMatch(startLineNotMatch);
+        assertTrue(handlerNull == null);
     }
 
     /**
