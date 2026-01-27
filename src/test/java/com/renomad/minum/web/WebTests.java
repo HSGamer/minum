@@ -1069,6 +1069,78 @@ public class WebTests {
     }
 
     /**
+     * a situation where nothing was registered to the list of pattern paths
+     */
+    @Test
+    public void test_PatternMatch_NothingRegistered() {
+        var webFramework = new WebFramework(context, default_zdt);
+
+        var startLine = new RequestLine(GET, new PathDetails("mypath", "", Map.of()), ONE_DOT_ONE, "", logger);
+        assertTrue(webFramework.findHandlerByPatternMatch(startLine) == null);
+    }
+
+    /**
+     * a complete match - the path matches the pattern exactly
+     */
+    @Test
+    public void test_PatternMatch_PerfectMatch() {
+        var webFramework = new WebFramework(context, default_zdt);
+        ThrowingBiFunction<IRequest, Matcher, IResponse> helloHandler = (request, matcher) -> Response.htmlOk("hello");
+
+        webFramework.registerPatternPath(GET, Pattern.compile("mypath"), helloHandler);
+
+        var startLine = new RequestLine(GET, new PathDetails("mypath", "", Map.of()), ONE_DOT_ONE, "", logger);
+        var handler = webFramework.findHandlerByPatternMatch(startLine);
+        assertTrue(handler != null);
+    }
+
+    @Test
+    public void test_PatternMatch_DoesNotMatch() {
+        var webFramework = new WebFramework(context, default_zdt);
+        ThrowingBiFunction<IRequest, Matcher, IResponse> helloHandler = (request, matcher) -> Response.htmlOk("hello");
+
+        webFramework.registerPatternPath(GET, Pattern.compile("mypath"), helloHandler);
+
+        var startLine = new RequestLine(GET, new PathDetails("mypa_DOES_NOT_MATCH", "", Map.of()), ONE_DOT_ONE, "", logger);
+        assertTrue(webFramework.findHandlerByPatternMatch(startLine) == null);
+    }
+
+    @Test
+    public void test_PatternMatch_DifferentMethod() {
+        var webFramework = new WebFramework(context, default_zdt);
+        ThrowingBiFunction<IRequest, Matcher, IResponse> helloHandler = (request, matcher) -> Response.htmlOk("hello");
+
+        webFramework.registerPatternPath(GET, Pattern.compile("mypath"), helloHandler);
+
+        var startLine = new RequestLine(POST, new PathDetails("mypath", "", Map.of()), ONE_DOT_ONE, "", logger);
+        assertTrue(webFramework.findHandlerByPatternMatch(startLine) == null);
+    }
+
+    @Test
+    public void test_PatternMatch_WithRegexPattern() {
+        var webFramework = new WebFramework(context, default_zdt);
+        ThrowingBiFunction<IRequest, Matcher, IResponse> helloHandler = (request, matcher) -> Response.htmlOk("hello");
+
+        webFramework.registerPatternPath(GET, Pattern.compile("mypath/.*"), helloHandler);
+
+        var startLine = new RequestLine(GET, new PathDetails("mypath/foo/bar", "", Map.of()), ONE_DOT_ONE, "", logger);
+        var handler = webFramework.findHandlerByPatternMatch(startLine);
+        assertTrue(handler != null);
+    }
+
+    @Test
+    public void test_PatternMatch_WithCaptureGroups() {
+        var webFramework = new WebFramework(context, default_zdt);
+        ThrowingBiFunction<IRequest, Matcher, IResponse> helloHandler = (request, matcher) -> Response.htmlOk("hello");
+
+        webFramework.registerPatternPath(GET, Pattern.compile("user/(\\d+)"), helloHandler);
+
+        var startLine = new RequestLine(GET, new PathDetails("user/123", "", Map.of()), ONE_DOT_ONE, "", logger);
+        var handler = webFramework.findHandlerByPatternMatch(startLine);
+        assertTrue(handler != null);
+    }
+
+    /**
      * if pathDetails is null, we'll get an empty hashmap
      */
     @Test

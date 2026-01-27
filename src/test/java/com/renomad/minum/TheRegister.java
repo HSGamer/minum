@@ -16,6 +16,9 @@ import com.renomad.minum.web.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.renomad.minum.web.RequestLine.Method.GET;
 import static com.renomad.minum.web.RequestLine.Method.POST;
@@ -102,6 +105,15 @@ public class TheRegister {
 
         // an endpoint with the header that contains multi-fields with the same header key
         webFramework.registerPath(GET, "multicookies", request -> Response.buildResponse(CODE_200_OK, Map.of("Set-Cookie", Response.constructHeaderMultiValue(List.of("a=value1", "b=value2"))), ""));
+
+        // endpoints to test the pattern path
+        webFramework.registerPatternPath(GET, Pattern.compile("patternpath/(\\d+)"), (request, matcher) -> Response.htmlOk("Number: " + matcher.group(1)));
+        webFramework.registerPatternPath(GET, Pattern.compile("patternpath/range/(?<from>\\d+)-(?<to>\\d+)"), (request, matcher) -> {
+            int from = Integer.parseInt(matcher.group("from"));
+            int to = Integer.parseInt(matcher.group("to"));
+            String result = "List: " + IntStream.range(from, to + 1).mapToObj(Integer::toString).collect(Collectors.joining(","));
+            return Response.htmlOk(result);
+        });
     }
 
     private static IResponse lastMinuteHandlerCode(LastMinuteHandlerInputs inputs) {
