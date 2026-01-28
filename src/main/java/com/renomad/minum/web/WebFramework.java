@@ -735,7 +735,7 @@ public final class WebFramework {
     /**
      * Similar to {@link WebFramework#registerPath(RequestLine.Method, String, ThrowingFunction)} except that we can provide the function conditionally
      * based on custom predicate of the path.
-     * The function takes a path string and returns a web handler. It can return null if the path is suitable.
+     * The function takes a path string and returns a web handler. It can return null if the path is not suitable.
      * <p>
      *     Be careful here, be thoughtful - partial paths will match a lot, and may
      *     overlap with other URL's for your app, such as endpoints and static files.
