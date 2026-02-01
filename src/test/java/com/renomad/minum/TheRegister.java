@@ -108,13 +108,20 @@ public class TheRegister {
         webFramework.registerPath(GET, "multicookies", request -> Response.buildResponse(CODE_200_OK, Map.of("Set-Cookie", Response.constructHeaderMultiValue(List.of("a=value1", "b=value2"))), ""));
 
         // endpoints to test the path function
-        Pattern pathPattern = Pattern.compile("patternpath/(\\d+)");
         webFramework.registerPath(GET, path -> {
-            Matcher matcher = pathPattern.matcher(path);
-            if (matcher.matches()) {
-                return request -> Response.htmlOk("Number: " + matcher.group(1));
+            String[] split = path.split("/", 2);
+            if (split.length != 2 || !split[0].equals("patternpath")) {
+                return null;
             }
-            return null;
+
+            int number;
+            try {
+                number = Integer.parseInt(split[1]);
+            }  catch (NumberFormatException e) {
+                return null;
+            }
+
+            return request -> Response.htmlOk("Number: " + number);
         });
         Pattern pathRangePattern = Pattern.compile("patternpath/range/(?<from>\\d+)-(?<to>\\d+)");
         webFramework.registerPath(GET, path -> {
