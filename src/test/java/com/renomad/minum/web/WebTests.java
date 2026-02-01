@@ -231,6 +231,18 @@ public class WebTests {
     }
 
     /**
+     * Same as {@link #test_EdgeCase_DuplicateRegistrations()} but for
+     * partial paths
+     */
+    @Test
+    public void test_EdgeCase_DuplicatePartialPathRegistrations() {
+        var wf = new WebFramework(context, default_zdt);
+        wf.registerPartialPath(GET, "add_two_numbers", request -> null);
+        var ex = assertThrows(WebServerException.class, () -> wf.registerPartialPath(GET, "add_two_numbers", request -> null));
+        assertEquals(ex.getMessage(), "Duplicate partial-path endpoint registered: MethodPath[method=GET, path=add_two_numbers]");
+    }
+
+    /**
      * If the developer tries registering a path prefixed with a slash,
      * explain that's not necessary or correct
      */

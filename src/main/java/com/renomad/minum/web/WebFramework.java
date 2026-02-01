@@ -69,6 +69,17 @@ public final class WebFramework {
     private final Map<RequestLine.Method, List<Function<String, ThrowingFunction<IRequest, IResponse>>>> registeredPathFunctions;
 
     /**
+     * A special path function that checks if the path starts with the defined one.
+     * It's here to retain the duplication check on {@link #registerPartialPath(RequestLine.Method, String, ThrowingFunction)},
+     */
+    private record PartialPathFunction(String pathName, ThrowingFunction<IRequest, IResponse> handler) implements Function<String, ThrowingFunction<IRequest, IResponse>> {
+        @Override
+        public ThrowingFunction<IRequest, IResponse> apply(String path) {
+            return path.startsWith(pathName) ? handler : null;
+        }
+    }
+
+    /**
      * A function that will be run instead of the ordinary business code. Has
      * provisions for running the business code as well.  See {@link #registerPreHandler(ThrowingFunction)}
      */
@@ -756,14 +767,25 @@ public final class WebFramework {
      *     Be careful here, be thoughtful - partial paths will match a lot, and may
      *     overlap with other URL's for your app, such as endpoints and static files.
      * </p>
-     * @throws WebServerException if the path is prefixed with a slash
+     * @throws WebServerException if duplicate paths are registered, or if the path is prefixed with a slash
      */
     public void registerPartialPath(RequestLine.Method method, String pathName, ThrowingFunction<IRequest, IResponse> webHandler) {
         if (pathName.startsWith("\\") || pathName.startsWith("/")) {
             throw new WebServerException(
                     String.format("Path should not be prefixed with a slash.  Corrected version: registerPartialPath(%s, \"%s\", ... )", method.name(), pathName.substring(1)));
         }
-        registerPath(method, path -> !path.startsWith(pathName) ? null : webHandler);
+        var functionList = registeredPathFunctions.get(method);
+        if (functionList != null) {
+            if (functionList.stream()
+                    .filter(PartialPathFunction.class::isInstance)
+                    .map(PartialPathFunction.class::cast)
+                    .map(function -> function.pathName)
+                    .anyMatch(pathName::equals)
+            ) {
+                throw new WebServerException("Duplicate partial-path endpoint registered: " + new MethodPath(method, pathName));
+            }
+        }
+        registerPath(method, new PartialPathFunction(pathName, webHandler));
     }
 
     /**
