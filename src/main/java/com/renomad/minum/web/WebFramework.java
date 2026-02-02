@@ -680,7 +680,7 @@ public final class WebFramework {
         this.constants = context.getConstants();
         this.overrideForDateTime = overrideForDateTime;
         this.registeredDynamicPaths = new HashMap<>();
-        this.registeredPathFunctions = new HashMap<>();
+        this.registeredPathFunctions = new EnumMap<>(RequestLine.Method.class);
         this.inputStreamUtils = new InputStreamUtils(constants.maxReadLineSizeBytes);
         this.bodyProcessor = new BodyProcessor(context);
 
